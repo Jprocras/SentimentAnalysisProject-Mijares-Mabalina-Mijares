@@ -1,0 +1,128 @@
+---
+title: "Sentiment Analysis Project"
+author: "Mijares, Mabalina, Compay"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+-- Use Case --
+
+The purpose of this analysis is to examine public opinion regarding BLACKPINK and its members over a period coinciding with both their Houston concert and the Itaewon tragedy. Specifically, we aim to:
+
+1. Understand the impact of external events on social media activity and sentiment.
+
+2. Provide actionable insights for BLACKPINK's management team regarding public sentiment and engagement.
+
+3. Inform strategies for managing public relations during crises by identifying key trends and sentiments.
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(tidytext)
+library(sentimentr)
+```
+-- Data Loading and Inspection --
+```{r}
+# Load the dataset
+data <- read.csv("/cloud/project/tweetsDF.csv")
+
+# Inspect the structure of the data
+str(data)
+
+# Check for missing values
+summary(data)
+
+# Display the first few rows of the dataset
+head(data)
+```
+-- Data Cleaning --
+
+```{r}
+# Data Cleaning
+# Remove duplicates and handle missing values
+data <- data %>% distinct() %>% drop_na()
+
+# Ensure the dataset contains a 'created' column
+if (!"created" %in% colnames(data)) {
+  stop("The dataset does not contain a 'created' column. Please ensure the dataset includes a timestamp column for analysis.")
+}
+
+# Rename 'created' to 'datetime' for consistency
+data <- data %>% rename(datetime = created)
+
+# Convert 'datetime' to a proper date-time format
+data <- data %>% mutate(datetime = ymd_hms(datetime))
+
+# Text preprocessing: Remove URLs, hashtags, mentions, and special characters
+data <- data %>% 
+  mutate(text = str_remove_all(text, "http[s]?://\\S+|#\\w+|@\\w+|[^\\w\\s]"))
+
+# Filter tweets mentioning Blackpink or its members
+keywords <- c("Blackpink", "Rose", "Lisa", "Jennie", "Jisoo", "concert")
+data_filtered <- data %>% filter(str_detect(tolower(text), paste(keywords, collapse = "|")))
+```
+
+-- Trend Analysis --
+
+```{r}
+# Restrict data to October 28–30, 2022
+data_filtered <- data_filtered %>% 
+  filter(datetime >= as.POSIXct("2022-10-28 00:00:00") & datetime <= as.POSIXct("2022-10-30 23:59:59"))
+
+# Count tweets over time
+time_trend <- data_filtered %>% 
+  mutate(date = as.Date(datetime)) %>% 
+  group_by(date) %>% 
+  summarise(tweet_count = n())
+
+# Ensure all dates in the range are included, even with zero counts
+date_range <- seq(as.Date("2022-10-28"), as.Date("2022-10-30"), by = "day")
+time_trend <- time_trend %>% 
+  complete(date = date_range, fill = list(tweet_count = 0))
+
+# Plot tweet trends over time
+ggplot(time_trend, aes(x = date, y = tweet_count)) + 
+  geom_line(color = "blue", size = 1) + 
+  labs(title = "Tweet Trends for Blackpink and Members (Oct 28–30)", x = "Date", y = "Number of Tweets") + 
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5, size = 16), axis.title = element_text(size = 12))
+
+```
+Insights for Trend Analysis:
+
+The tweet activity mentioning BLACKPINK and its members between October 28 and October 30, 2022, shows a gradual rise in mentions from October 28 to October 29, followed by a significant spike on October 30. The increase in activity on October 30 coincides with discussions surrounding the Itaewon tragedy and BLACKPINK's decision to continue their Houston concert. This comparison likely drew heightened attention, as public sentiment became divided between criticism and support. The spike also suggests the amplifying effects of social media, where high-profile events and controversies tend to dominate discourse.
+
+-- Sentiment Analysis --
+
+```{r}
+# Perform sentiment analysis on the filtered tweets
+sentiment_scores <- sentiment_by(data_filtered$text)
+data_filtered$sentiment <- sentiment_scores$ave_sentiment
+
+# Categorize sentiment
+data_filtered <- data_filtered %>% 
+  mutate(sentiment_category = case_when(
+    sentiment > 0 ~ "Positive",
+    sentiment < 0 ~ "Negative",
+    TRUE ~ "Neutral"
+  ))
+
+# Sentiment Distribution
+ggplot(data_filtered, aes(x = sentiment_category, fill = sentiment_category)) + 
+  geom_bar() + 
+  labs(title = "Sentiment Distribution of BLACKPINK Tweets", x = "Sentiment", y = "Count") + 
+  scale_fill_manual(values = c("Positive" = "green", "Neutral" = "gray", "Negative" = "red")) + 
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5, size = 16), axis.title = element_text(size = 12))
+
+
+```
+Insights for Sentiment Analysis:
+
+The sentiment analysis of tweets reveals that negative sentiments were the most prevalent during this period. Many tweets expressed criticism of BLACKPINK and their agency for continuing their Houston concert despite the Itaewon tragedy. Upon closer review, some negative tweets appear to stem from online trolls amplifying backlash. Positive sentiments, though less frequent, reflect fans’ support for the group and their prayers for those affected by the Itaewon incident. Neutral sentiment was the least represented, as most tweets expressed strong opinions or emotions regarding the tragedy and BLACKPINK's concert.
+
