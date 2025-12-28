@@ -166,9 +166,9 @@ This analysis uses publicly available Twitter data. Users should be aware of:
 - Ethical implications of sentiment analysis on public figures
 - The limitation that social media sentiment may not represent broader public opinion
 
-## Contact
+## Authors
 
-For questions or collaboration opportunities, please contact the project authors:
+This project was developed by:
 - Mijares
 - Mabalina  
 - Compay
